@@ -9,17 +9,17 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #071828;
-  --panel: #0c2034;
-  --panel-2: #102840;
-  --border: #1a3d58;
-  --text: #d6eaf6;
-  --text-dim: #6aaece;
-  --accent: #1aa2dc;
-  --ok: #3fb950;
-  --fail: #f85149;
-  --warn: #d29922;
-  --neutral: #3d7a9e;
+  --bg: #f0f2f4;
+  --panel: #ffffff;
+  --panel-2: #e8eaed;
+  --border: #d0d4d9;
+  --text: #1a1e24;
+  --text-dim: #5a6270;
+  --accent: #1a76c7;
+  --ok: #1a7f37;
+  --fail: #b91c1c;
+  --warn: #92600a;
+  --neutral: #6b7280;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -155,15 +155,15 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
 .section-status.complete {
-  background: rgba(63, 185, 80, 0.15);
+  background: #dcfce7;
   color: var(--ok);
-  border: 1px solid rgba(63, 185, 80, 0.3);
+  border: 1px solid #86efac;
 }
 
 .section-status.incomplete {
-  background: rgba(248, 81, 73, 0.15);
+  background: #fee2e2;
   color: var(--fail);
-  border: 1px solid rgba(248, 81, 73, 0.3);
+  border: 1px solid #fca5a5;
 }
 
 .section-body {
@@ -258,12 +258,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
 .status-pill.ok {
-  background: rgba(63, 185, 80, 0.15);
+  background: #dcfce7;
   color: var(--ok);
 }
 
 .status-pill.fail {
-  background: rgba(248, 81, 73, 0.15);
+  background: #fee2e2;
   color: var(--fail);
 }
 
@@ -299,8 +299,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
 .error-banner {
-  background: rgba(248, 81, 73, 0.1);
-  border: 1px solid rgba(248, 81, 73, 0.3);
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
   color: var(--fail);
   padding: 12px 16px;
   border-radius: 6px;
