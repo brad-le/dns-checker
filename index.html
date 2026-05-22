@@ -253,8 +253,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 3px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   white-space: nowrap;
+  text-align: right;
 }
 
 .status-pill.ok {
@@ -439,6 +440,10 @@ function statusPill(ok) {
     : '<span class="status-pill fail">FAIL</span>';
 }
 
+function statusPillFailOnly(ok, label = 'FAIL') {
+  return ok ? '' : `<span class="status-pill fail">${label}</span>`;
+}
+
 function checkRow(type, name, tag, valueHtml, statusHtml, expectedHtml = "") {
   return `
     <div class="check">
@@ -537,11 +542,11 @@ async function runCheck(domain) {
       </div>
       <div class="section-body">
         ${checkRow("TXT", `_cf-custom-hostname.${domain}`, "correct", fmtValue(txtCorrect.values), statusPill(txtCorrectOk))}
-        ${checkRow("TXT", `cf-custom-hostname.${domain}`, "no underscore", fmtValue(txtNoUnder.values), statusPill(txtNoUnderOk))}
-        ${checkRow("TXT", `_cf-custom-hostname.${domain}.${domain}`, "doubled", fmtValue(txtDoubled.values), statusPill(txtDoubledOk))}
+        ${checkRow("TXT", `cf-custom-hostname.${domain}`, "no underscore", fmtValue(txtNoUnder.values), statusPillFailOnly(txtNoUnderOk, "Incorrect Setup — Missing Underscore"))}
+        ${checkRow("TXT", `_cf-custom-hostname.${domain}.${domain}`, "doubled", fmtValue(txtDoubled.values), statusPillFailOnly(txtDoubledOk, "Incorrect Setup — Double Domain"))}
         ${checkRow("CNAME", `_acme-challenge.${domain}`, "correct", fmtValue(cnameCorrect.values), statusPill(cnameCorrectOk), escapeHtml(EXPECTED_DCV_TARGET))}
-        ${checkRow("CNAME", `acme-challenge.${domain}`, "no underscore", fmtValue(cnameNoUnder.values), statusPill(cnameNoUnderOk))}
-        ${checkRow("CNAME", `_acme-challenge.${domain}.${domain}`, "doubled", fmtValue(cnameDoubled.values), statusPill(cnameDoubledOk))}
+        ${checkRow("CNAME", `acme-challenge.${domain}`, "no underscore", fmtValue(cnameNoUnder.values), statusPillFailOnly(cnameNoUnderOk, "Incorrect Setup — Missing Underscore"))}
+        ${checkRow("CNAME", `_acme-challenge.${domain}.${domain}`, "doubled", fmtValue(cnameDoubled.values), statusPillFailOnly(cnameDoubledOk, "Incorrect Setup — Double Domain"))}
       </div>
     </div>
 
