@@ -34,7 +34,7 @@ body {
 }
 
 .container {
-  max-width: 980px;
+  max-width: 1280px;
   margin: 0 auto;
 }
 
@@ -124,12 +124,24 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-left: 3px solid var(--accent);
 }
 
+.phases-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+  align-items: start;
+}
+
 .section {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
   margin-bottom: 16px;
   overflow: hidden;
+}
+
+.phases-row .section {
+  margin-bottom: 0;
 }
 
 .section-header {
@@ -335,7 +347,7 @@ footer {
 <body>
 <div class="container">
   <header>
-    <h1>Cloudflare DNS Checker</h1>
+    <h1>DNS Checker</h1>
   </header>
 
   <div class="input-row">
@@ -354,6 +366,7 @@ footer {
 const EXPECTED_A_RECORDS = new Set(["104.16.85.56", "104.16.86.56"]);
 const EXPECTED_WWW_CNAME = "proxy-web.liveeditaurora.com";
 const EXPECTED_DCV_TARGET = "ea56cdc951f52bb8.dcv.cloudflare.com";
+const RACKSPACE_IPS = new Set(["50.56.7.147", "161.47.102.211"]);
 
 const DNS_HOSTS = [
   ["domaincontrol.com", "GoDaddy"],
@@ -394,7 +407,6 @@ async function dohLookup(name, rtype) {
     const res = await fetch(url, { headers: { Accept: "application/dns-json" } });
     if (!res.ok) return { values: [`ERROR: HTTP ${res.status}`], error: true };
     const data = await res.json();
-    // Status 3 = NXDOMAIN, 0 = NOERROR. NoAnswer = no Answer field.
     if (!data.Answer) return { values: [], error: false };
     const wanted = RTYPE_MAP[rtype];
     const out = [];
@@ -470,15 +482,15 @@ async function runCheck(domain) {
   `;
 
   const lookups = await Promise.all([
-    dohLookup(`cf-custom-hostname.${domain}`, "TXT"),       // 0 - no underscore
-    dohLookup(`_cf-custom-hostname.${domain}`, "TXT"),      // 1 - correct
+    dohLookup(`cf-custom-hostname.${domain}`, "TXT"),            // 0 - no underscore
+    dohLookup(`_cf-custom-hostname.${domain}`, "TXT"),           // 1 - correct
     dohLookup(`_cf-custom-hostname.${domain}.${domain}`, "TXT"), // 2 - doubled
-    dohLookup(`acme-challenge.${domain}`, "CNAME"),         // 3 - no underscore
-    dohLookup(`_acme-challenge.${domain}`, "CNAME"),        // 4 - correct
-    dohLookup(`_acme-challenge.${domain}.${domain}`, "CNAME"), // 5 - doubled
-    dohLookup(`www.${domain}`, "CNAME"),                    // 6
-    dohLookup(domain, "A"),                                 // 7
-    dohLookup(domain, "NS"),                                // 8
+    dohLookup(`acme-challenge.${domain}`, "CNAME"),              // 3 - no underscore
+    dohLookup(`_acme-challenge.${domain}`, "CNAME"),             // 4 - correct
+    dohLookup(`_acme-challenge.${domain}.${domain}`, "CNAME"),   // 5 - doubled
+    dohLookup(`www.${domain}`, "CNAME"),                         // 6
+    dohLookup(domain, "A"),                                      // 7
+    dohLookup(domain, "NS"),                                     // 8
   ]);
 
   const [
@@ -506,7 +518,6 @@ async function runCheck(domain) {
   const wwwOk = wwwCname.values.length > 0 && wwwCname.values.some(v => v.toLowerCase() === EXPECTED_WWW_CNAME);
   const phase2Ok = aMissing.length === 0 && aExtra.length === 0 && wwwOk;
 
-  // Build A record display
   let aDisplayHtml = "";
   if (aValues.length === 0) {
     aDisplayHtml = '<span class="none">(none)</span>';
@@ -526,46 +537,82 @@ async function runCheck(domain) {
     aDisplayHtml = parts.join("<br>");
   }
 
-  // Phase 2 notes
   const phase2Notes = [];
   if (aMissing.length) phase2Notes.push(`missing A: ${aMissing.join(", ")}`);
   if (aExtra.length) phase2Notes.push(`unexpected A: ${aExtra.join(", ")}`);
   if (!wwwOk) phase2Notes.push("www CNAME wrong target");
 
+  // Rackspace launch check
+  const rsAOk = aValues.length > 0 && aValues.every(ip => RACKSPACE_IPS.has(ip));
+  const rsWwwOk = wwwCname.values.length > 0 && wwwCname.values.some(v => v.toLowerCase().replace(/\.$/, "") === domain);
+  const rsOk = rsAOk && rsWwwOk;
+
+  let rsADisplayHtml = "";
+  if (aValues.length === 0) {
+    rsADisplayHtml = '<span class="none">(none)</span>';
+  } else {
+    const parts = [];
+    for (const ip of [...new Set(aValues)].sort()) {
+      const isRs = RACKSPACE_IPS.has(ip);
+      parts.push(`${escapeHtml(ip)} <span class="ip-tag ${isRs ? '' : 'unexpected'}">[${isRs ? 'rackspace' : 'unexpected'}]</span>`);
+    }
+    rsADisplayHtml = parts.join("<br>");
+  }
+
   const html = `
     <div class="domain-header">${escapeHtml(domain)}</div>
 
-    <div class="section">
-      <div class="section-header">
-        <span>Phase 1 &middot; Cloudflare custom hostname validation</span>
-        <span class="section-status ${phase1Ok ? 'complete' : 'incomplete'}">${phase1Ok ? 'COMPLETE' : 'INCOMPLETE'}</span>
+    <div class="phases-row">
+      <div class="section">
+        <div class="section-header">
+          <span>Phase 1 &middot; Domain Validation</span>
+          <span class="section-status ${phase1Ok ? 'complete' : 'incomplete'}">${phase1Ok ? 'COMPLETE' : 'INCOMPLETE'}</span>
+        </div>
+        <div class="section-body">
+          ${checkRow("TXT", `_cf-custom-hostname.${domain}`, "correct", fmtValue(txtCorrect.values), statusPill(txtCorrectOk))}
+          ${txtNoUnder.values.length ? checkRow("TXT", `cf-custom-hostname.${domain}`, "no underscore", fmtValue(txtNoUnder.values), statusPillFailOnly(txtNoUnderOk, "Incorrect — Missing Underscore")) : ""}
+          ${txtDoubled.values.length ? checkRow("TXT", `_cf-custom-hostname.${domain}.${domain}`, "doubled", fmtValue(txtDoubled.values), statusPillFailOnly(txtDoubledOk, "Incorrect — Double Domain")) : ""}
+          ${checkRow("CNAME", `_acme-challenge.${domain}`, "correct", fmtValue(cnameCorrect.values), statusPill(cnameCorrectOk), escapeHtml(EXPECTED_DCV_TARGET))}
+          ${cnameNoUnder.values.length ? checkRow("CNAME", `acme-challenge.${domain}`, "no underscore", fmtValue(cnameNoUnder.values), statusPillFailOnly(cnameNoUnderOk, "Incorrect — Missing Underscore")) : ""}
+          ${cnameDoubled.values.length ? checkRow("CNAME", `_acme-challenge.${domain}.${domain}`, "doubled", fmtValue(cnameDoubled.values), statusPillFailOnly(cnameDoubledOk, "Incorrect — Double Domain")) : ""}
+        </div>
       </div>
-      <div class="section-body">
-        ${checkRow("TXT", `_cf-custom-hostname.${domain}`, "correct", fmtValue(txtCorrect.values), statusPill(txtCorrectOk))}
-        ${checkRow("TXT", `cf-custom-hostname.${domain}`, "no underscore", fmtValue(txtNoUnder.values), statusPillFailOnly(txtNoUnderOk, "Incorrect Setup — Missing Underscore"))}
-        ${checkRow("TXT", `_cf-custom-hostname.${domain}.${domain}`, "doubled", fmtValue(txtDoubled.values), statusPillFailOnly(txtDoubledOk, "Incorrect Setup — Double Domain"))}
-        ${checkRow("CNAME", `_acme-challenge.${domain}`, "correct", fmtValue(cnameCorrect.values), statusPill(cnameCorrectOk), escapeHtml(EXPECTED_DCV_TARGET))}
-        ${checkRow("CNAME", `acme-challenge.${domain}`, "no underscore", fmtValue(cnameNoUnder.values), statusPillFailOnly(cnameNoUnderOk, "Incorrect Setup — Missing Underscore"))}
-        ${checkRow("CNAME", `_acme-challenge.${domain}.${domain}`, "doubled", fmtValue(cnameDoubled.values), statusPillFailOnly(cnameDoubledOk, "Incorrect Setup — Double Domain"))}
+
+      <div class="section">
+        <div class="section-header">
+          <span>Phase 2 &middot; Connect Domain</span>
+        </div>
+        <div class="section-body">
+          <div class="check">
+            <div>
+              <div class="check-label"><span class="check-type">A</span></div>
+              <div class="check-name">${escapeHtml(domain)}</div>
+              <div class="check-value">${aDisplayHtml}</div>
+              <div class="expected">expected: ${[...EXPECTED_A_RECORDS].sort().join(", ")}</div>
+            </div>
+            <div>${statusPill(aMissing.length === 0 && aExtra.length === 0)}</div>
+          </div>
+          ${checkRow("CNAME", `www.${domain}`, "proxy", fmtValue(wwwCname.values), statusPill(wwwOk), escapeHtml(EXPECTED_WWW_CNAME))}
+        </div>
       </div>
     </div>
 
     <div class="section">
       <div class="section-header">
-        <span>Phase 2 &middot; Cloudflare proxy cutover${phase2Notes.length ? ' &middot; ' + escapeHtml(phase2Notes.join("; ")) : ''}</span>
-        <span class="section-status ${phase2Ok ? 'complete' : 'incomplete'}">${phase2Ok ? 'COMPLETE' : 'INCOMPLETE'}</span>
+        <span>Current hosting</span>
+        <span class="section-status ${rsOk ? 'complete' : 'incomplete'}">${rsOk ? 'CONFIRMED' : 'NOT CONFIRMED'}</span>
       </div>
       <div class="section-body">
         <div class="check">
           <div>
-            <div class="check-label"><span class="check-type">A</span></div>
+            <div class="check-label"><span class="check-type">A</span> <span class="check-tag">[root domain]</span></div>
             <div class="check-name">${escapeHtml(domain)}</div>
-            <div class="check-value">${aDisplayHtml}</div>
-            <div class="expected">expected: ${[...EXPECTED_A_RECORDS].sort().join(", ")}</div>
+            <div class="check-value">${rsADisplayHtml}</div>
+            <div class="expected">expected: ${[...RACKSPACE_IPS].sort().join(", ")}</div>
           </div>
-          <div>${statusPill(aMissing.length === 0 && aExtra.length === 0)}</div>
+          <div>${statusPill(rsAOk)}</div>
         </div>
-        ${checkRow("CNAME", `www.${domain}`, "proxy", fmtValue(wwwCname.values), statusPill(wwwOk), escapeHtml(EXPECTED_WWW_CNAME))}
+        ${checkRow("CNAME", `www.${domain}`, "root domain", fmtValue(wwwCname.values), statusPill(rsWwwOk), escapeHtml(domain))}
       </div>
     </div>
 
