@@ -504,7 +504,8 @@ async function runCheck(domain) {
   const txtNoUnderOk = txtNoUnder.values.length === 0;
   const txtDoubledOk = txtDoubled.values.length === 0;
 
-  const cnameCorrectOk = cnameCorrect.values.length > 0 && cnameCorrect.values.some(v => v.includes(EXPECTED_DCV_TARGET));
+  const expectedDcv = `${domain}.${EXPECTED_DCV_TARGET}`;
+  const cnameCorrectOk = cnameCorrect.values.length > 0 && cnameCorrect.values.some(v => v === expectedDcv || v.includes(EXPECTED_DCV_TARGET));
   const cnameNoUnderOk = cnameNoUnder.values.length === 0;
   const cnameDoubledOk = cnameDoubled.values.length === 0;
 
@@ -572,7 +573,7 @@ async function runCheck(domain) {
           ${checkRow("TXT", `_cf-custom-hostname.${domain}`, "correct", fmtValue(txtCorrect.values), statusPill(txtCorrectOk))}
           ${txtNoUnder.values.length ? checkRow("TXT", `cf-custom-hostname.${domain}`, "no underscore", fmtValue(txtNoUnder.values), statusPillFailOnly(txtNoUnderOk, "Incorrect — Missing Underscore")) : ""}
           ${txtDoubled.values.length ? checkRow("TXT", `_cf-custom-hostname.${domain}.${domain}`, "doubled", fmtValue(txtDoubled.values), statusPillFailOnly(txtDoubledOk, "Incorrect — Double Domain")) : ""}
-          ${checkRow("CNAME", `_acme-challenge.${domain}`, "correct", fmtValue(cnameCorrect.values), statusPill(cnameCorrectOk), escapeHtml(EXPECTED_DCV_TARGET))}
+          ${checkRow("CNAME", `_acme-challenge.${domain}`, "correct", fmtValue(cnameCorrect.values), statusPill(cnameCorrectOk), escapeHtml(`${domain}.${EXPECTED_DCV_TARGET}`))}
           ${cnameNoUnder.values.length ? checkRow("CNAME", `acme-challenge.${domain}`, "no underscore", fmtValue(cnameNoUnder.values), statusPillFailOnly(cnameNoUnderOk, "Incorrect — Missing Underscore")) : ""}
           ${cnameDoubled.values.length ? checkRow("CNAME", `_acme-challenge.${domain}.${domain}`, "doubled", fmtValue(cnameDoubled.values), statusPillFailOnly(cnameDoubledOk, "Incorrect — Double Domain")) : ""}
         </div>
