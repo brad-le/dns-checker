@@ -491,12 +491,15 @@ async function runCheck(domain) {
     dohLookup(`www.${domain}`, "CNAME"),                         // 6
     dohLookup(domain, "A"),                                      // 7
     dohLookup(domain, "NS"),                                     // 8
+    dohLookup(`_acme-challenge.${domain}`, "TXT"),               // 9 - TXT instead of CNAME (wrong type)
+    dohLookup(`_cf-custom-hostname.${domain}`, "CNAME"),         // 10 - CNAME instead of TXT (wrong type)
   ]);
 
   const [
     txtNoUnder, txtCorrect, txtDoubled,
     cnameNoUnder, cnameCorrect, cnameDoubled,
-    wwwCname, rootA, ns
+    wwwCname, rootA, ns,
+    acmeTxt, cfHostnameCname
   ] = lookups;
 
   // Phase 1 validations
@@ -508,6 +511,14 @@ async function runCheck(domain) {
   const cnameCorrectOk = cnameCorrect.values.length > 0 && cnameCorrect.values.some(v => v === expectedDcv || v.includes(EXPECTED_DCV_TARGET));
   const cnameNoUnderOk = cnameNoUnder.values.length === 0;
   const cnameDoubledOk = cnameDoubled.values.length === 0;
+
+  // Detect TXT set at _acme-challenge instead of CNAME
+  const acmeTxtHasDcv = !cnameCorrectOk && acmeTxt.values.length > 0 &&
+    acmeTxt.values.some(v => v.includes(EXPECTED_DCV_TARGET) || v.includes(".dcv.cloudflare.com"));
+
+  // Detect CNAME set at _cf-custom-hostname instead of TXT
+  const cfHostnameCnameHasValue = !txtCorrectOk && cfHostnameCname.values.length > 0 &&
+    !cfHostnameCname.values.some(v => v.startsWith("ERROR"));
 
   const phase1Ok = txtCorrectOk && txtNoUnderOk && txtDoubledOk && cnameCorrectOk && cnameNoUnderOk && cnameDoubledOk;
 
@@ -571,9 +582,11 @@ async function runCheck(domain) {
         </div>
         <div class="section-body">
           ${checkRow("TXT", `_cf-custom-hostname.${domain}`, "correct", fmtValue(txtCorrect.values), statusPill(txtCorrectOk))}
+          ${cfHostnameCnameHasValue ? checkRow("CNAME", `_cf-custom-hostname.${domain}`, "wrong type", fmtValue(cfHostnameCname.values), '<span class="status-pill fail">Wrong Type — Use TXT</span>') : ""}
           ${txtNoUnder.values.length ? checkRow("TXT", `cf-custom-hostname.${domain}`, "no underscore", fmtValue(txtNoUnder.values), statusPillFailOnly(txtNoUnderOk, "Incorrect — Missing Underscore")) : ""}
           ${txtDoubled.values.length ? checkRow("TXT", `_cf-custom-hostname.${domain}.${domain}`, "doubled", fmtValue(txtDoubled.values), statusPillFailOnly(txtDoubledOk, "Incorrect — Double Domain")) : ""}
           ${checkRow("CNAME", `_acme-challenge.${domain}`, "correct", fmtValue(cnameCorrect.values), statusPill(cnameCorrectOk), escapeHtml(`${domain}.${EXPECTED_DCV_TARGET}`))}
+          ${acmeTxtHasDcv ? checkRow("TXT", `_acme-challenge.${domain}`, "wrong type", fmtValue(acmeTxt.values), '<span class="status-pill fail">Wrong Type — Use CNAME</span>') : ""}
           ${cnameNoUnder.values.length ? checkRow("CNAME", `acme-challenge.${domain}`, "no underscore", fmtValue(cnameNoUnder.values), statusPillFailOnly(cnameNoUnderOk, "Incorrect — Missing Underscore")) : ""}
           ${cnameDoubled.values.length ? checkRow("CNAME", `_acme-challenge.${domain}.${domain}`, "doubled", fmtValue(cnameDoubled.values), statusPillFailOnly(cnameDoubledOk, "Incorrect — Double Domain")) : ""}
         </div>
