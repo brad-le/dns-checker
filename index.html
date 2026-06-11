@@ -503,12 +503,14 @@ async function runCheck(domain) {
   ] = lookups;
 
   // Phase 1 validations
-  const txtCorrectOk = txtCorrect.values.length > 0 && !txtCorrect.values.some(v => v.startsWith("ERROR"));
+  const txtHasSpace = txtCorrect.values.some(v => !v.startsWith("ERROR") && v.includes(" "));
+  const txtCorrectOk = txtCorrect.values.length > 0 && !txtCorrect.values.some(v => v.startsWith("ERROR")) && !txtHasSpace;
   const txtNoUnderOk = txtNoUnder.values.length === 0;
   const txtDoubledOk = txtDoubled.values.length === 0;
 
   const expectedDcv = `${domain}.${EXPECTED_DCV_TARGET}`;
-  const cnameCorrectOk = cnameCorrect.values.length > 0 && cnameCorrect.values.some(v => v === expectedDcv || v.includes(EXPECTED_DCV_TARGET));
+  const cnameHasSpace = cnameCorrect.values.some(v => !v.startsWith("ERROR") && v.includes(" "));
+  const cnameCorrectOk = cnameCorrect.values.length > 0 && cnameCorrect.values.some(v => v === expectedDcv || v.includes(EXPECTED_DCV_TARGET)) && !cnameHasSpace;
   const cnameNoUnderOk = cnameNoUnder.values.length === 0;
   const cnameDoubledOk = cnameDoubled.values.length === 0;
 
@@ -581,11 +583,11 @@ async function runCheck(domain) {
           <span class="section-status ${phase1Ok ? 'complete' : 'incomplete'}">${phase1Ok ? 'COMPLETE' : 'INCOMPLETE'}</span>
         </div>
         <div class="section-body">
-          ${checkRow("TXT", `_cf-custom-hostname.${domain}`, "correct", fmtValue(txtCorrect.values), statusPill(txtCorrectOk))}
+          ${checkRow("TXT", `_cf-custom-hostname.${domain}`, "correct", fmtValue(txtCorrect.values), txtHasSpace ? '<span class="status-pill fail">Contains Space</span>' : statusPill(txtCorrectOk))}
           ${cfHostnameCnameHasValue ? checkRow("CNAME", `_cf-custom-hostname.${domain}`, "wrong type", fmtValue(cfHostnameCname.values), '<span class="status-pill fail">Wrong Type — Use TXT</span>') : ""}
           ${txtNoUnder.values.length ? checkRow("TXT", `cf-custom-hostname.${domain}`, "no underscore", fmtValue(txtNoUnder.values), statusPillFailOnly(txtNoUnderOk, "Incorrect — Missing Underscore")) : ""}
           ${txtDoubled.values.length ? checkRow("TXT", `_cf-custom-hostname.${domain}.${domain}`, "doubled", fmtValue(txtDoubled.values), statusPillFailOnly(txtDoubledOk, "Incorrect — Double Domain")) : ""}
-          ${checkRow("CNAME", `_acme-challenge.${domain}`, "correct", fmtValue(cnameCorrect.values), statusPill(cnameCorrectOk), escapeHtml(`${domain}.${EXPECTED_DCV_TARGET}`))}
+          ${checkRow("CNAME", `_acme-challenge.${domain}`, "correct", fmtValue(cnameCorrect.values), cnameHasSpace ? '<span class="status-pill fail">Contains Space</span>' : statusPill(cnameCorrectOk), escapeHtml(`${domain}.${EXPECTED_DCV_TARGET}`))}
           ${acmeTxtHasDcv ? checkRow("TXT", `_acme-challenge.${domain}`, "wrong type", fmtValue(acmeTxt.values), '<span class="status-pill fail">Wrong Type — Use CNAME</span>') : ""}
           ${cnameNoUnder.values.length ? checkRow("CNAME", `acme-challenge.${domain}`, "no underscore", fmtValue(cnameNoUnder.values), statusPillFailOnly(cnameNoUnderOk, "Incorrect — Missing Underscore")) : ""}
           ${cnameDoubled.values.length ? checkRow("CNAME", `_acme-challenge.${domain}.${domain}`, "doubled", fmtValue(cnameDoubled.values), statusPillFailOnly(cnameDoubledOk, "Incorrect — Double Domain")) : ""}
