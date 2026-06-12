@@ -462,11 +462,10 @@ function checkRow(type, name, tag, valueHtml, statusHtml, expectedHtml = "") {
       <div>
         <div class="check-label">
           <span class="check-type">${type}</span>
-          <span class="check-tag">[${tag}]</span>
+          ${["correct", "proxy"].includes(tag) ? "" : `<span class="check-tag">[${tag}]</span>`}
         </div>
         <div class="check-name">${escapeHtml(name)}</div>
         <div class="check-value">${valueHtml}</div>
-        ${expectedHtml ? `<div class="expected">expected: ${expectedHtml}</div>` : ""}
       </div>
       <div>${statusHtml}</div>
     </div>
@@ -541,9 +540,7 @@ async function runCheck(domain) {
   } else {
     const parts = [];
     for (const ip of [...aSet].sort()) {
-      const tag = EXPECTED_A_RECORDS.has(ip) ? "expected" : "unexpected";
-      const cls = EXPECTED_A_RECORDS.has(ip) ? "" : "unexpected";
-      parts.push(`${escapeHtml(ip)} <span class="ip-tag ${cls}">[${tag}]</span>`);
+      parts.push(escapeHtml(ip));
     }
     for (const ip of aMissing.sort()) {
       parts.push(`<span class="missing">(missing) ${escapeHtml(ip)}</span>`);
@@ -568,7 +565,7 @@ async function runCheck(domain) {
     const parts = [];
     for (const ip of [...new Set(aValues)].sort()) {
       const isRs = RACKSPACE_IPS.has(ip);
-      parts.push(`${escapeHtml(ip)} <span class="ip-tag ${isRs ? '' : 'unexpected'}">[${isRs ? 'rackspace' : 'unexpected'}]</span>`);
+      parts.push(isRs ? escapeHtml(ip) : `${escapeHtml(ip)} <span class="ip-tag unexpected">[unexpected]</span>`);
     }
     rsADisplayHtml = parts.join("<br>");
   }
@@ -604,7 +601,6 @@ async function runCheck(domain) {
               <div class="check-label"><span class="check-type">A</span></div>
               <div class="check-name">${escapeHtml(domain)}</div>
               <div class="check-value">${aDisplayHtml}</div>
-              <div class="expected">expected: ${[...EXPECTED_A_RECORDS].sort().join(", ")}</div>
             </div>
             <div>${statusPill(aMissing.length === 0 && aExtra.length === 0)}</div>
           </div>
@@ -624,7 +620,6 @@ async function runCheck(domain) {
             <div class="check-label"><span class="check-type">A</span> <span class="check-tag">[root domain]</span></div>
             <div class="check-name">${escapeHtml(domain)}</div>
             <div class="check-value">${rsADisplayHtml}</div>
-            <div class="expected">expected: ${[...RACKSPACE_IPS].sort().join(", ")}</div>
           </div>
           <div>${statusPill(rsAOk)}</div>
         </div>
@@ -634,7 +629,7 @@ async function runCheck(domain) {
 
     <div class="context">
       <div class="context-row">
-        <div class="context-label">NS</div>
+        <div class="context-label">Name Servers</div>
         <div class="context-value">${ns.values.length ? ns.values.sort().map(escapeHtml).join(", ") : '<span style="color: var(--neutral);">(none)</span>'}</div>
       </div>
       <div class="context-row">
