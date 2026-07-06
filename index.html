@@ -401,6 +401,15 @@ const DNS_HOSTS = [
   ["pipedns.com", "pipedns"],
   ["drtel.net", "DRtel (Dickey Rural Networks)"],
   ["franticllc.com", "Frantic LLC"],
+  ["awsdns", "AWS Route 53"],
+  ["wixdns.net", "Wix"],
+  ["domains.google", "Google Domains / Squarespace"],
+  ["dreamhost.com", "DreamHost"],
+  ["gandi.net", "Gandi"],
+  ["name.com", "Name.com"],
+  ["porkbun.com", "Porkbun"],
+  ["enom.com", "eNom"],
+  ["name-services.com", "eNom / Tucows"],
 ];
 
 const RTYPE_MAP = { A: 1, CNAME: 5, TXT: 16, NS: 2 };
@@ -576,7 +585,6 @@ async function runCheck(domain) {
   // Rackspace launch check
   const rsAOk = aValues.length > 0 && aValues.every(ip => RACKSPACE_IPS.has(ip));
   const rsWwwOk = wwwCname.values.length > 0 && wwwCname.values.some(v => v.toLowerCase().replace(/\.$/, "") === domain);
-  const rsOk = rsAOk && rsWwwOk;
 
   let rsADisplayHtml = "";
   if (aValues.length === 0) {
@@ -632,7 +640,6 @@ async function runCheck(domain) {
     <div class="section">
       <div class="section-header">
         <span>Current hosting</span>
-        <span class="section-status ${rsOk ? 'complete' : 'incomplete'}">${rsOk ? 'CONFIRMED' : 'NOT CONFIRMED'}</span>
       </div>
       <div class="section-body">
         <div class="check">
