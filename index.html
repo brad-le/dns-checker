@@ -251,7 +251,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .check-value .ip-tag.unexpected { color: var(--warn); }
 .check-value .missing { color: var(--fail); }
 
-.space-hl {
+.space-hl,
+.char-hl {
   display: inline-block;
   background: #fee2e2;
   color: var(--fail);
@@ -484,6 +485,23 @@ function spaceStatusPill(values) {
   return '<span class="status-pill fail">Contains Space</span>';
 }
 
+// A valid TXT verification value contains only letters, numbers, and hyphens.
+const TXT_INVALID_CHAR = /[^A-Za-z0-9-]/;
+
+// Render values with each invalid character (anything but a letter, number, or hyphen) highlighted.
+// Spaces are shown as a middot; other invalid chars (e.g. "/") are shown as-is.
+function fmtValueHighlightInvalid(values) {
+  if (!values || !values.length) return '<span class="none">(none)</span>';
+  return values.map(v => {
+    if (v.startsWith("ERROR")) return escapeHtml(v);
+    return Array.from(v).map(ch => {
+      if (ch === " ") return '<span class="space-hl" title="space">&middot;</span>';
+      if (TXT_INVALID_CHAR.test(ch)) return `<span class="char-hl" title="invalid character">${escapeHtml(ch)}</span>`;
+      return escapeHtml(ch);
+    }).join("");
+  }).join("; ");
+}
+
 function statusPill(ok) {
   return ok
     ? '<span class="status-pill ok">OK</span>'
@@ -541,7 +559,9 @@ async function runCheck(domain) {
 
   // Phase 1 validations
   const txtHasSpace = txtCorrect.values.some(v => !v.startsWith("ERROR") && v.includes(" "));
-  const txtCorrectOk = txtCorrect.values.length > 0 && !txtCorrect.values.some(v => v.startsWith("ERROR")) && !txtHasSpace;
+  // Flag any character that isn't a letter, number, or hyphen (spaces are reported separately above)
+  const txtHasInvalidChar = txtCorrect.values.some(v => !v.startsWith("ERROR") && TXT_INVALID_CHAR.test(v.replace(/ /g, "")));
+  const txtCorrectOk = txtCorrect.values.length > 0 && !txtCorrect.values.some(v => v.startsWith("ERROR")) && !txtHasSpace && !txtHasInvalidChar;
   const txtNoUnderOk = txtNoUnder.values.length === 0;
   const txtDoubledOk = txtDoubled.values.length === 0;
 
@@ -595,7 +615,7 @@ async function runCheck(domain) {
           <span class="section-status ${phase1Ok ? 'complete' : 'incomplete'}">${phase1Ok ? 'COMPLETE' : 'INCOMPLETE'}</span>
         </div>
         <div class="section-body">
-          ${checkRow("TXT", `_cf-custom-hostname.${domain}`, "correct", txtHasSpace ? fmtValueHighlightSpaces(txtCorrect.values) : fmtValue(txtCorrect.values), txtHasSpace ? spaceStatusPill(txtCorrect.values) : statusPill(txtCorrectOk))}
+          ${checkRow("TXT", `_cf-custom-hostname.${domain}`, "correct", (txtHasSpace || txtHasInvalidChar) ? fmtValueHighlightInvalid(txtCorrect.values) : fmtValue(txtCorrect.values), txtHasSpace ? spaceStatusPill(txtCorrect.values) : (txtHasInvalidChar ? '<span class="status-pill fail">Invalid Character</span>' : statusPill(txtCorrectOk)))}
           ${cfHostnameCnameHasValue ? checkRow("CNAME", `_cf-custom-hostname.${domain}`, "wrong type", fmtValue(cfHostnameCname.values), '<span class="status-pill fail">Wrong Type — Use TXT</span>') : ""}
           ${txtNoUnder.values.length ? checkRow("TXT", `cf-custom-hostname.${domain}`, "no underscore", fmtValue(txtNoUnder.values), statusPillFailOnly(txtNoUnderOk, "Incorrect — Missing Underscore")) : ""}
           ${txtDoubled.values.length ? checkRow("TXT", `_cf-custom-hostname.${domain}.${domain}`, "doubled", fmtValue(txtDoubled.values), statusPillFailOnly(txtDoubledOk, "Incorrect — Double Domain")) : ""}
