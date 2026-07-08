@@ -378,7 +378,6 @@ footer {
 const EXPECTED_A_RECORDS = new Set(["162.159.143.48", "172.66.3.44"]);
 const EXPECTED_WWW_CNAME = "proxy-web.liveeditaurora.com";
 const EXPECTED_DCV_TARGET = "ea56cdc951f52bb8.dcv.cloudflare.com";
-const RACKSPACE_IPS = new Set(["50.56.7.147", "161.47.102.211"]);
 
 const DNS_HOSTS = [
   ["domaincontrol.com", "GoDaddy"],
@@ -586,22 +585,6 @@ async function runCheck(domain) {
   if (aExtra.length) phase2Notes.push(`unexpected A: ${aExtra.join(", ")}`);
   if (!wwwOk) phase2Notes.push("www CNAME wrong target");
 
-  // Rackspace launch check
-  const rsAOk = aValues.length > 0 && aValues.every(ip => RACKSPACE_IPS.has(ip));
-  const rsWwwOk = wwwCname.values.length > 0 && wwwCname.values.some(v => v.toLowerCase().replace(/\.$/, "") === domain);
-
-  let rsADisplayHtml = "";
-  if (aValues.length === 0) {
-    rsADisplayHtml = '<span class="none">(none)</span>';
-  } else {
-    const parts = [];
-    for (const ip of [...new Set(aValues)].sort()) {
-      const isRs = RACKSPACE_IPS.has(ip);
-      parts.push(isRs ? escapeHtml(ip) : `${escapeHtml(ip)} <span class="ip-tag unexpected">[unexpected]</span>`);
-    }
-    rsADisplayHtml = parts.join("<br>");
-  }
-
   const html = `
     <div class="domain-header">${escapeHtml(domain)}</div>
 
@@ -626,6 +609,7 @@ async function runCheck(domain) {
       <div class="section">
         <div class="section-header">
           <span>Phase 2 &middot; Connect Domain</span>
+          <span class="section-status ${phase2Ok ? 'complete' : 'incomplete'}">${phase2Ok ? 'COMPLETE' : 'INCOMPLETE'}</span>
         </div>
         <div class="section-body">
           <div class="check">
@@ -641,31 +625,14 @@ async function runCheck(domain) {
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-header">
-        <span>Current hosting</span>
-      </div>
-      <div class="section-body">
-        <div class="check">
-          <div>
-            <div class="check-label"><span class="check-type">A</span> <span class="check-tag">[root domain]</span></div>
-            <div class="check-name">${escapeHtml(domain)}</div>
-            <div class="check-value">${rsADisplayHtml}</div>
-          </div>
-          <div>${statusPill(rsAOk)}</div>
-        </div>
-        ${checkRow("CNAME", `www.${domain}`, "root domain", fmtValue(wwwCname.values), statusPill(rsWwwOk), escapeHtml(domain))}
-      </div>
-    </div>
-
     <div class="context">
-      <div class="context-row">
-        <div class="context-label">Name Servers</div>
-        <div class="context-value">${ns.values.length ? ns.values.sort().map(escapeHtml).join(", ") : '<span style="color: var(--neutral);">(none)</span>'}</div>
-      </div>
       <div class="context-row">
         <div class="context-label">DNS host</div>
         <div class="context-value">${escapeHtml(inferDnsHost(ns.values))}</div>
+      </div>
+      <div class="context-row">
+        <div class="context-label">Name Servers</div>
+        <div class="context-value">${ns.values.length ? ns.values.sort().map(escapeHtml).join(", ") : '<span style="color: var(--neutral);">(none)</span>'}</div>
       </div>
     </div>
   `;
