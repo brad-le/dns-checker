@@ -590,7 +590,11 @@ async function runCheck(domain) {
   const aSet = new Set(aValues);
   const aMissing = [...EXPECTED_A_RECORDS].filter(ip => !aSet.has(ip));
   const aExtra = [...aSet].filter(ip => !EXPECTED_A_RECORDS.has(ip));
-  const wwwOk = wwwCname.values.length > 0 && wwwCname.values.some(v => v.toLowerCase() === EXPECTED_WWW_CNAME);
+  // www CNAME is valid if it points to the proxy target OR to the root domain itself
+  const wwwOk = wwwCname.values.length > 0 && wwwCname.values.some(v => {
+    const target = v.toLowerCase().replace(/\.$/, "");
+    return target === EXPECTED_WWW_CNAME || target === domain;
+  });
   const phase2Ok = aMissing.length === 0 && aExtra.length === 0 && wwwOk;
 
   let aDisplayHtml = "";
@@ -640,7 +644,7 @@ async function runCheck(domain) {
             </div>
             <div>${statusPill(aMissing.length === 0 && aExtra.length === 0)}</div>
           </div>
-          ${checkRow("CNAME", `www.${domain}`, "proxy", fmtValue(wwwCname.values), statusPill(wwwOk), escapeHtml(EXPECTED_WWW_CNAME))}
+          ${checkRow("CNAME", `www.${domain}`, "proxy", fmtValue(wwwCname.values), statusPill(wwwOk), escapeHtml(`${EXPECTED_WWW_CNAME} or ${domain}`))}
         </div>
       </div>
     </div>
