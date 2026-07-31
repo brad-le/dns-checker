@@ -596,12 +596,12 @@ async function runCheck(domain) {
     const target = v.toLowerCase().replace(/\.$/, "");
     return target === EXPECTED_WWW_CNAME || target === domain;
   });
-  // www should be a CNAME, not an A record. An A record here (pointing to an IP) is a failure; not set is fine.
-  // Exception: when the www CNAME is correctly set, an A lookup can just be the CNAME resolving to the root's
-  // expected A records — those aren't a real A record, so ignore them.
+  // www should be a CNAME, not an A record. A standalone A record here (pointing to an IP) is a failure.
+  // When www has a CNAME, an A lookup just returns the CNAME resolving through to its target's A records —
+  // that's not a separately-configured A record, so ignore it. A real A record only exists when there's no CNAME.
   const wwwAValues = wwwA.values.filter(v => !v.startsWith("ERROR"));
-  const wwwAAllExpected = wwwAValues.length > 0 && wwwAValues.every(ip => EXPECTED_A_RECORDS.has(ip));
-  const wwwAOk = wwwAValues.length === 0 || (wwwOk && wwwAAllExpected);
+  const wwwHasCname = wwwCname.values.some(v => !v.startsWith("ERROR"));
+  const wwwAOk = wwwAValues.length === 0 || wwwHasCname;
   const phase2Ok = aMissing.length === 0 && aExtra.length === 0 && wwwOk && wwwAOk;
 
   let aDisplayHtml = "";
