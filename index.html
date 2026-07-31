@@ -597,8 +597,11 @@ async function runCheck(domain) {
     return target === EXPECTED_WWW_CNAME || target === domain;
   });
   // www should be a CNAME, not an A record. An A record here (pointing to an IP) is a failure; not set is fine.
+  // Exception: when the www CNAME is correctly set, an A lookup can just be the CNAME resolving to the root's
+  // expected A records — those aren't a real A record, so ignore them.
   const wwwAValues = wwwA.values.filter(v => !v.startsWith("ERROR"));
-  const wwwAOk = wwwAValues.length === 0;
+  const wwwAAllExpected = wwwAValues.length > 0 && wwwAValues.every(ip => EXPECTED_A_RECORDS.has(ip));
+  const wwwAOk = wwwAValues.length === 0 || (wwwOk && wwwAAllExpected);
   const phase2Ok = aMissing.length === 0 && aExtra.length === 0 && wwwOk && wwwAOk;
 
   let aDisplayHtml = "";
@@ -650,7 +653,7 @@ async function runCheck(domain) {
             <div>${statusPill(aMissing.length === 0 && aExtra.length === 0)}</div>
           </div>
           ${checkRow("CNAME", `www.${domain}`, "proxy", fmtValue(wwwCname.values), statusPill(wwwOk), escapeHtml(`${EXPECTED_WWW_CNAME} or ${domain}`))}
-          ${wwwAValues.length ? checkRow("A", `www.${domain}`, "", fmtValue(wwwAValues), '<span class="status-pill fail">Should be CNAME</span>') : ""}
+          ${!wwwAOk ? checkRow("A", `www.${domain}`, "", fmtValue(wwwAValues), '<span class="status-pill fail">Should be CNAME</span>') : ""}
         </div>
       </div>
     </div>
