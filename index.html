@@ -518,7 +518,7 @@ function checkRow(type, name, tag, valueHtml, statusHtml, expectedHtml = "") {
       <div>
         <div class="check-label">
           <span class="check-type">${type}</span>
-          ${["correct", "proxy"].includes(tag) ? "" : `<span class="check-tag">[${tag}]</span>`}
+          ${!tag || ["correct", "proxy"].includes(tag) ? "" : `<span class="check-tag">[${tag}]</span>`}
         </div>
         <div class="check-name">${escapeHtml(name)}</div>
         <div class="check-value">${valueHtml}</div>
@@ -548,13 +548,14 @@ async function runCheck(domain) {
     dohLookup(domain, "NS"),                                     // 8
     dohLookup(`_acme-challenge.${domain}`, "TXT"),               // 9 - TXT instead of CNAME (wrong type)
     dohLookup(`_cf-custom-hostname.${domain}`, "CNAME"),         // 10 - CNAME instead of TXT (wrong type)
+    dohLookup(`www.${domain}`, "A"),                             // 11 - www A record (should not exist)
   ]);
 
   const [
     txtNoUnder, txtCorrect, txtDoubled,
     cnameNoUnder, cnameCorrect, cnameDoubled,
     wwwCname, rootA, ns,
-    acmeTxt, cfHostnameCname
+    acmeTxt, cfHostnameCname, wwwA
   ] = lookups;
 
   // Phase 1 validations
@@ -595,7 +596,10 @@ async function runCheck(domain) {
     const target = v.toLowerCase().replace(/\.$/, "");
     return target === EXPECTED_WWW_CNAME || target === domain;
   });
-  const phase2Ok = aMissing.length === 0 && aExtra.length === 0 && wwwOk;
+  // www should be a CNAME, not an A record. An A record here (pointing to an IP) is a failure; not set is fine.
+  const wwwAValues = wwwA.values.filter(v => !v.startsWith("ERROR"));
+  const wwwAOk = wwwAValues.length === 0;
+  const phase2Ok = aMissing.length === 0 && aExtra.length === 0 && wwwOk && wwwAOk;
 
   let aDisplayHtml = "";
   if (aValues.length === 0) {
@@ -608,6 +612,7 @@ async function runCheck(domain) {
   if (aMissing.length) phase2Notes.push(`missing A: ${aMissing.join(", ")}`);
   if (aExtra.length) phase2Notes.push(`unexpected A: ${aExtra.join(", ")}`);
   if (!wwwOk) phase2Notes.push("www CNAME wrong target");
+  if (!wwwAOk) phase2Notes.push(`www has A record: ${wwwAValues.join(", ")}`);
 
   const html = `
     <div class="domain-header">${escapeHtml(domain)}</div>
@@ -645,6 +650,7 @@ async function runCheck(domain) {
             <div>${statusPill(aMissing.length === 0 && aExtra.length === 0)}</div>
           </div>
           ${checkRow("CNAME", `www.${domain}`, "proxy", fmtValue(wwwCname.values), statusPill(wwwOk), escapeHtml(`${EXPECTED_WWW_CNAME} or ${domain}`))}
+          ${wwwAValues.length ? checkRow("A", `www.${domain}`, "", fmtValue(wwwAValues), '<span class="status-pill fail">Should be CNAME</span>') : ""}
         </div>
       </div>
     </div>
